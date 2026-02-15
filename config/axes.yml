@@ -1,0 +1,65 @@
+axes:
+  - id: 1
+    name: "Cognition & AI"
+    description: "인간 인지는 어떻게 변하고 있는가"
+    keywords:
+      - cognitive offloading
+      - extended mind
+      - neuroplasticity
+      - attention economy
+      - metacognition
+      - cognitive enhancement
+      - human-AI collaboration
+      - artificial intelligence cognition
+
+  - id: 2
+    name: "Deep Work & Intellectual Craftsmanship"
+    description: "깊은 사고의 기술"
+    keywords:
+      - deep work
+      - slow thinking
+      - writing as thinking
+      - intellectual labor
+      - knowledge work
+      - focused attention
+      - deliberate practice
+      - critical thinking
+
+  - id: 3
+    name: "Embodied Intelligence"
+    description: "몸과 사고의 연결"
+    keywords:
+      - embodied cognition
+      - meditation research
+      - breathwork
+      - mindfulness
+      - somatic intelligence
+      - yoga neuroscience
+      - body-mind connection
+      - contemplative practice
+
+  - id: 4
+    name: "Philosophy of Technology"
+    description: "기술 시대의 철학적 질문"
+    keywords:
+      - philosophy of AI
+      - posthumanism
+      - technology ethics
+      - consciousness
+      - digital humanities
+      - techno-philosophy
+      - existential risk
+      - human meaning
+
+  - id: 5
+    name: "The New Scholar"
+    description: "지식인의 역할 재정의"
+    keywords:
+      - future of education
+      - agentic learning
+      - knowledge worker
+      - public intellectual
+      - teaching AI age
+      - learning design
+      - coaching
+      - intellectual leadership

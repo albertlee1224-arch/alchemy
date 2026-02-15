@@ -1,0 +1,49 @@
+deep_read_sources:
+  # Tier 1 — 사상
+  - name: "Noema Magazine"
+    url: "https://www.noemamag.com/feed/"
+    tier: 1
+  - name: "Aeon"
+    url: "https://aeon.co/feed.rss"
+    tier: 1
+  - name: "Psyche"
+    url: "https://psyche.co/feed"
+    tier: 1
+
+  # Tier 2 — 분석
+  - name: "MIT Technology Review"
+    url: "https://www.technologyreview.com/feed/"
+    tier: 2
+  - name: "The Atlantic - Ideas"
+    url: "https://www.theatlantic.com/feed/channel/ideas/"
+    tier: 2
+  - name: "Works in Progress"
+    url: "https://www.worksinprogress.co/feed/"
+    tier: 2
+  - name: "Quanta Magazine"
+    url: "https://quantamagazine.org/feed/"
+    tier: 2
+
+  # Tier 3 — 개인 사유
+  - name: "Paul Graham"
+    url: "http://www.aaronsw.com/2002/feeds/pgessays.rss"
+    tier: 3
+  - name: "Farnam Street"
+    url: "https://fs.blog/feed/"
+    tier: 3
+  - name: "Brain Pickings / The Marginalian"
+    url: "https://www.themarginalian.org/feed/"
+    tier: 3
+  - name: "Seth Godin"
+    url: "https://seths.blog/feed/"
+    tier: 3
+
+news_keywords:
+  - "artificial intelligence thinking"
+  - "cognitive science"
+  - "meditation research"
+  - "future of education"
+  - "philosophy of technology"
+  - "human cognition AI"
+  - "mindfulness performance"
+  - "deep work productivity"
