@@ -1,6 +1,7 @@
-"""사용자 취향 관리 모듈 — 👎 피드백 기반"""
+"""사용자 취향 관리 모듈 — 👎 피드백 기반 + 중복 방지"""
 
 from supabase import create_client
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 
@@ -58,6 +59,25 @@ def save_feedback(client, article_url: str, reaction: str, memo: str = ""):
 
     client.table("articles").update({"status": new_status}).eq("url", article_url).execute()
     client.table("feedback").insert(data).execute()
+
+
+def get_recent_urls(client, days: int = 7) -> set:
+    """최근 N일 내 추천된 아티클/뉴스 URL 목록 (중복 방지용)"""
+    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+
+    recent_urls = set()
+
+    articles = client.table("articles").select("url").gte("created_at", cutoff).execute()
+    for a in (articles.data or []):
+        if a.get("url"):
+            recent_urls.add(a["url"])
+
+    news = client.table("news").select("url").gte("created_at", cutoff).execute()
+    for n in (news.data or []):
+        if n.get("url"):
+            recent_urls.add(n["url"])
+
+    return recent_urls
 
 
 def get_excluded_topics(client) -> List[str]:
