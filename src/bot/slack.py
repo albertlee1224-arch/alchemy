@@ -13,6 +13,29 @@ from src.bot.formatter import (
 from src.curator.preferences import get_supabase_client, save_feedback
 
 
+def _save_to_notion(supabase, url: str, rating: str):
+    """Supabase에서 아티클/뉴스 정보를 찾아 Notion Vault에 저장"""
+    try:
+        from src.vault.notion import add_article_to_vault, add_news_to_vault
+
+        # 아티클 테이블에서 먼저 검색
+        result = supabase.table("articles").select("*").eq("url", url).execute()
+        if result.data:
+            add_article_to_vault(result.data[0], rating)
+            return
+
+        # 뉴스 테이블에서 검색
+        result = supabase.table("news").select("*").eq("url", url).execute()
+        if result.data:
+            add_news_to_vault(result.data[0], rating)
+            return
+
+        # DB에 없으면 최소 정보로 저장
+        add_article_to_vault({"title": "Untitled", "url": url}, rating)
+    except Exception as e:
+        print(f"Notion save error: {e}")
+
+
 def _post(client, channel, text, blocks):
     """공통 메시지 전송 — 링크 프리뷰 비활성화"""
     client.chat_postMessage(
@@ -68,9 +91,13 @@ def create_slack_app():
                 if urls:
                     save_feedback(supabase, urls[0], reaction_map[reaction])
 
+                # Notion Vault에 저장 (⭐, 📂만)
+                if reaction in ("star", "file_folder"):
+                    _save_to_notion(supabase, urls[0] if urls else "", reaction_map[reaction])
+
                 emoji_labels = {
-                    "star": "⭐ 인상적으로 아카이브했어요!",
-                    "file_folder": "📂 읽음으로 아카이브했어요!",
+                    "star": "⭐ Notion Vault에 아카이브했어요!",
+                    "file_folder": "📂 Notion Vault에 저장했어요!",
                     "-1": "👎 다음 추천에 반영할게요!",
                     "thumbsdown": "👎 다음 추천에 반영할게요!",
                 }
