@@ -125,8 +125,11 @@ def send_daily_briefing(news: list, articles: list):
     for i, n in enumerate(news[:5]):
         _post(client, channel, f"📡 {n.get('title', '')}", format_single_news(n, i))
 
-    # 3. Deep Read 섹션 헤더
-    _post(client, channel, "📖 TODAY'S DEEP READ", format_deep_read_header())
+    # 3. Deep Read 섹션 헤더 (Connector의 관통하는 질문 포함)
+    daily_connection = ""
+    if articles and articles[0].get("daily_connection"):
+        daily_connection = articles[0]["daily_connection"]
+    _post(client, channel, "📖 TODAY'S DEEP READ", format_deep_read_header(daily_connection))
 
     # 4. 아티클 각각 개별 메시지
     for i, article in enumerate(articles[:3]):

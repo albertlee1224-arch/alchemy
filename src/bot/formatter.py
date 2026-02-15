@@ -55,15 +55,24 @@ def format_single_news(news: Dict, index: int) -> List[Dict]:
     ]
 
 
-def format_deep_read_header() -> List[Dict]:
-    """Deep Read 섹션 헤더 (1개 메시지)"""
-    return [
+def format_deep_read_header(daily_connection: str = "") -> List[Dict]:
+    """Deep Read 섹션 헤더 + 관통하는 질문 (1개 메시지)"""
+    blocks = [
         {"type": "divider"},
         {
             "type": "section",
             "text": {"type": "mrkdwn", "text": "*📖 TODAY'S DEEP READ — 3 Picks*"}
         },
     ]
+
+    if daily_connection:
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*🔗 오늘의 브리핑을 관통하는 질문:*\n_{daily_connection}_"}
+        })
+        blocks.append({"type": "divider"})
+
+    return blocks
 
 
 def format_single_article(article: Dict, index: int) -> List[Dict]:

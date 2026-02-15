@@ -1,4 +1,9 @@
-"""Groq 기반 아티클 요약 및 선별 모듈"""
+"""Groq 기반 3-에이전트 큐레이션 시스템
+
+Agent 1: Selector — 25개 중 최적 아티클 선별
+Agent 2: Analyst — 선별된 아티클의 3-Point Card 작성
+Agent 3: Connector — 아티클 간 연결고리 발견
+"""
 
 import json
 import yaml
@@ -93,6 +98,10 @@ def _call_groq(client, prompt: str) -> str:
     return response.choices[0].message.content.strip()
 
 
+# ──────────────────────────────────────────────
+# 뉴스: 기존 단일 에이전트 (뉴스는 가벼우므로 1회로 충분)
+# ──────────────────────────────────────────────
+
 def select_and_summarize_news(client, news_articles: List[Dict], count: int = 5) -> List[Dict]:
     """뉴스 중 가장 관련성 높은 것을 선별하고 3줄 요약"""
 
@@ -155,10 +164,12 @@ Select exactly {count} articles. All summaries MUST be in Korean. Be specific, n
         return []
 
 
-def select_and_summarize_articles(
-    client, articles: List[Dict], count: int = 3, excluded_topics: List[str] = None
-) -> List[Dict]:
-    """아티클 중 Deep Read 3편을 선별하고 3-Point 카드 생성"""
+# ──────────────────────────────────────────────
+# 아티클: 3-에이전트 시스템
+# ──────────────────────────────────────────────
+
+def _agent_selector(client, articles: List[Dict], count: int, excluded_topics: List[str] = None) -> List[Dict]:
+    """Agent 1: Selector — 아티클 선별 전문"""
 
     axes_info = load_axes()
     axes_text = "\n".join([f"- Axis {a['id']}: {a['name']} — {a['description']}" for a in axes_info])
@@ -172,37 +183,83 @@ def select_and_summarize_articles(
         for i, a in enumerate(articles[:25])
     ])
 
-    prompt = f"""You are Alchemi, Albert's Deep Read curator. You know Albert deeply and select articles that will genuinely expand his thinking.
+    prompt = f"""You are the SELECTOR agent — your ONLY job is to pick the best articles for Albert. Do NOT summarize, do NOT analyze. Just select.
+
+{ALBERT_CONTEXT}
+
+The 5 Axes:
+{axes_text}
+
+Selection Criteria (in priority order):
+1. Paradigm-shifting: Does it introduce a NEW concept, framework, or challenge an existing mental model?
+2. Argument over Information: Does it have a clear THESIS and reasoning (not just reporting)?
+3. Timeless over Timely: Will this perspective still be valid 10 years from now?
+4. Tier priority: Tier 1 (Aeon, Noema, Psyche) > Tier 2 > Tier 3
+5. Axis diversity: Try to cover different Axes, not all from the same topic
+{exclusion_note}
+
+ARTICLES:
+{articles_list}
+
+Select exactly {count} articles. For each, explain in 1 sentence WHY you chose it (what makes it stand out).
+
+Respond in JSON:
+{{
+  "selected": [
+    {{
+      "index": 1,
+      "title": "article title",
+      "source": "source name",
+      "url": "https://...",
+      "tier": 1,
+      "axis_id": 1,
+      "axis_name": "Cognition & AI",
+      "selection_reason": "Why this article stands out (1 sentence, English)",
+      "content_preview": "paste the preview here for the next agent"
+    }}
+  ]
+}}"""
+
+    text = _call_groq(client, prompt)
+    result = json.loads(text)
+    return result.get("selected", [])
+
+
+def _agent_analyst(client, selected_articles: List[Dict]) -> List[Dict]:
+    """Agent 2: Analyst — 3-Point Card 작성 전문"""
+
+    articles_detail = "\n\n---\n\n".join([
+        f"Article {i+1}: {a['title']}\nSource: {a['source']}\nURL: {a['url']}\nAxis: {a.get('axis_name', '')}\nSelection reason: {a.get('selection_reason', '')}\nPreview: {a.get('content_preview', '')[:800]}"
+        for i, a in enumerate(selected_articles)
+    ])
+
+    prompt = f"""You are the ANALYST agent — your job is to create deep, specific 3-Point Cards. The articles have already been selected for you. Focus ALL your energy on quality analysis.
 
 {ALBERT_CONTEXT}
 
 {ARTICLE_EXAMPLE}
 
-The 5 Axes:
-{axes_text}
+SELECTED ARTICLES:
+{articles_detail}
 
-Article Selection Criteria:
-- Timeless over Timely: perspectives valid 10 years from now
-- Argument over Information: articles with clear thesis and reasoning, not just reporting
-- Paradigm-shifting: introduces new concepts, frameworks, or challenges existing mental models
-- Prioritize Tier 1 sources (Aeon, Noema, Psyche), then Tier 2, then Tier 3
-{exclusion_note}
+For EACH article, create a 3-Point Card:
 
-TASK: Select the {count} best Deep Read picks and create a 3-Point Card for each.
+CRITICAL RULES:
+- 🆕 왜 새로운가: What SPECIFIC claim, evidence, or argument is genuinely new? NOT a vague summary. State the concrete novelty in 2 dense sentences.
+- 💎 새로운 개념: Extract ONE specific concept/framework/term. If the article doesn't name one explicitly, identify the implicit framework and give it a name. The concept name should be in English, the description in Korean.
+- 🎯 왜 읽어야 하는가: Connect DIRECTLY to Albert's SPECIFIC situation:
+  * His breathing practice (24초-24초 단전호흡, 목표 태식 2분)
+  * His debate coaching background (8년 디베이트포올)
+  * His AI-as-cognitive-extension philosophy
+  * His Scholar-Practitioner goal (기업 강의 + 명상 기반 생산성 + 글쓰기 프로그램)
+  * His Microflow writing program
+  Pick the MOST relevant connection. Be SPECIFIC, not generic. 2 sentences.
 
-CRITICAL RULES for each card:
-- 🆕 왜 새로운가: What is genuinely NEW about this article's argument? Not a vague summary. What specific claim or evidence is fresh?
-- 💎 새로운 개념: Name ONE specific concept/framework/term from the article. If the article doesn't introduce one, extract the implicit framework and name it.
-- 🎯 왜 읽어야 하는가: Connect DIRECTLY to Albert's specific situation — his breathing practice (24초), his debate coaching background, his AI-as-cognitive-extension philosophy, his goal of becoming a Scholar-Practitioner. Be SPECIFIC, not generic.
+Follow the GOOD EXAMPLE. If your output resembles the BAD EXAMPLE, rewrite it.
 
-Follow the GOOD EXAMPLE above. Avoid the BAD EXAMPLE patterns.
-
-ARTICLES:
-{articles_list}
-
-Respond in JSON format:
+Respond in JSON:
 {{
-  "selected_articles": [
+  "analyzed_articles": [
     {{
       "title": "article title",
       "source": "source name",
@@ -210,20 +267,88 @@ Respond in JSON format:
       "read_time": "12 min",
       "axis_id": 1,
       "axis_name": "Cognition & AI",
-      "why_new": "왜 새로운가 (구체적으로, 2문장)",
-      "new_concept_name": "개념/프레임워크 이름 (영문)",
-      "new_concept_desc": "개념 설명 (1문장, 한국어)",
-      "why_read": "왜 읽어야 하는가 (Albert의 구체적 상황과 연결, 2문장)"
+      "why_new": "왜 새로운가 (구체적, 2문장)",
+      "new_concept_name": "Concept Name (영문)",
+      "new_concept_desc": "개념 설명 (1문장, 한국어, 밀도 높게)",
+      "why_read": "왜 읽어야 하는가 (Albert 구체적 상황 연결, 2문장)"
     }}
   ]
 }}
 
-Select exactly {count} articles. Cover different Axes. All Korean descriptions must be dense, specific, and avoid filler words."""
+All Korean must be dense, specific, zero filler words."""
 
-    try:
-        text = _call_groq(client, prompt)
-        result = json.loads(text)
-        return result.get("selected_articles", [])
-    except Exception as e:
-        print(f"Article summarization error: {e}")
+    text = _call_groq(client, prompt)
+    result = json.loads(text)
+    return result.get("analyzed_articles", [])
+
+
+def _agent_connector(client, analyzed_articles: List[Dict], starred_articles: List[Dict] = None) -> str:
+    """Agent 3: Connector — 아티클 간 연결고리 발견"""
+
+    articles_summary = "\n".join([
+        f"- {a['title']} [{a.get('axis_name', '')}]: {a.get('new_concept_name', '')} — {a.get('new_concept_desc', '')}"
+        for a in analyzed_articles
+    ])
+
+    starred_context = ""
+    if starred_articles:
+        starred_summary = "\n".join([
+            f"- {a.get('title', '')} [{a.get('axis_name', '')}]: {a.get('new_concept_name', '')}"
+            for a in starred_articles[:5]
+        ])
+        starred_context = f"\n\nAlbert가 최근 ⭐ 인상적으로 표시한 아티클:\n{starred_summary}"
+
+    prompt = f"""You are the CONNECTOR agent — your job is to find the hidden thread that connects today's articles, and optionally connect them to Albert's recent interests.
+
+{ALBERT_CONTEXT}
+
+Today's selected articles:
+{articles_summary}
+{starred_context}
+
+TASK: Write ONE connecting question or insight in Korean that ties these articles together.
+
+Rules:
+- This should be a thought-provoking question or a synthesized insight
+- It should connect at least 2 of today's articles
+- If starred articles are available, try to connect today's picks with Albert's recent interests
+- Keep it to 1-2 sentences, dense and specific
+- This will be displayed as "이번 브리핑을 관통하는 질문" in the daily briefing
+
+Respond in JSON:
+{{
+  "connection": "오늘의 아티클을 관통하는 질문 또는 인사이트 (1-2문장, 한국어)"
+}}"""
+
+    text = _call_groq(client, prompt)
+    result = json.loads(text)
+    return result.get("connection", "")
+
+
+def select_and_summarize_articles(
+    client, articles: List[Dict], count: int = 3,
+    excluded_topics: List[str] = None, starred_articles: List[Dict] = None
+) -> List[Dict]:
+    """3-에이전트 파이프라인으로 아티클 큐레이션"""
+
+    print("  [Agent 1: Selector] Picking best articles...")
+    selected = _agent_selector(client, articles, count, excluded_topics)
+    print(f"  [Agent 1] Selected {len(selected)} articles")
+
+    if not selected:
         return []
+
+    print("  [Agent 2: Analyst] Creating 3-Point Cards...")
+    analyzed = _agent_analyst(client, selected)
+    print(f"  [Agent 2] Analyzed {len(analyzed)} articles")
+
+    print("  [Agent 3: Connector] Finding connections...")
+    connection = _agent_connector(client, analyzed, starred_articles)
+    if connection:
+        print(f"  [Agent 3] Connection: {connection[:50]}...")
+
+    # 연결고리를 첫 번째 아티클에 메타데이터로 첨부
+    if analyzed and connection:
+        analyzed[0]["daily_connection"] = connection
+
+    return analyzed

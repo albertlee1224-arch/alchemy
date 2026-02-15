@@ -87,8 +87,14 @@ def run_daily_briefing():
         selected_news = select_and_summarize_news(model, raw_news, count=5)
         print(f"  Selected {len(selected_news)} news")
 
+        # ⭐ 아티클을 Connector 에이전트에 전달 (개인화 강화)
+        from src.curator.preferences import get_weekly_stats
+        stats = get_weekly_stats(supabase)
+        starred = stats.get("starred_articles", [])
+
         selected_articles = select_and_summarize_articles(
-            model, raw_articles, count=3, excluded_topics=excluded
+            model, raw_articles, count=3,
+            excluded_topics=excluded, starred_articles=starred
         )
         print(f"  Selected {len(selected_articles)} deep reads")
 
