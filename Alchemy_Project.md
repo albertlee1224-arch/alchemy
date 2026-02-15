@@ -25,7 +25,9 @@
 | 아티클 수집 | RSS 피드 (10개 소스) | 무료 |
 | DB | Supabase (PostgreSQL) | 무료 |
 | 봇 | Slack Bolt (Python) | 무료 |
-| 서버 | TBD (Railway or local cron) | TBD |
+| 서버 | Railway ($5 무료 크레딧/월) | $0 |
+| 아카이브 | Notion API (Alchemy Vault) | 무료 |
+| 코드 저장 | GitHub (Private) | 무료 |
 | **총 비용** | | **$0/월** |
 
 ### RSS 소스 (Tier별)
@@ -99,10 +101,11 @@ Line 3: Albert에게 시사하는 점
 
 | 이모지 | 의미 | 동작 |
 |--------|------|------|
-| ⭐ | 인상적 | Supabase에 status = 'starred' 저장 |
-| 📂 | 저장 | Supabase에 status = 'archived' 저장 |
+| ⭐ | 인상적 | Supabase 저장 + **Notion Vault에 "⭐ 인상적"으로 아카이브** |
+| 📂 | 저장 | Supabase 저장 + **Notion Vault에 "📂 저장"으로 아카이브** |
 | 👎 | 관심없음 | Supabase에 status = 'skipped' 저장 + 추천 개선에 반영 |
 
+- ⭐/📂 반응 시 Notion Vault에 자동 저장 (제목, 소스, Axis, 새로운 개념, 읽어야 하는 이유 포함)
 - 👎 피드백은 `feedback` 테이블에 기록되며, 해당 토픽은 이후 추천에서 제외됨
 
 ---
@@ -125,6 +128,7 @@ Line 3: Albert에게 시사하는 점
 ```
 alchemy/
 ├── main.py                  # 메인 실행 (daily/weekend/weekly/server)
+├── scheduler.py             # 스케줄러 (Railway 자동 실행)
 ├── requirements.txt
 ├── .env                     # API 키 (git 제외)
 ├── .gitignore
@@ -144,13 +148,32 @@ alchemy/
     ├── bot/
     │   ├── slack.py          # Slack Bolt 전송 + 이벤트 수신
     │   └── formatter.py      # 메시지 포맷 (Block Kit)
+    ├── vault/
+    │   └── notion.py         # Notion Vault 연동 (아카이브 자동 저장)
     └── reporter/
         └── weekly.py         # 주간 리포트 + 주말 아티클 생성
 ```
 
 ---
 
-## 9. 실행 방법
+## 9. 배포 환경
+
+| 항목 | 내용 |
+|------|------|
+| **호스팅** | Railway (자동 배포) |
+| **URL** | https://web-production-8193d2.up.railway.app |
+| **GitHub** | https://github.com/albertlee1224-arch/alchemy (Private) |
+| **Slack Events** | /slack/events (reaction_added 수신) |
+| **Health Check** | /health |
+
+### 스케줄 (KST 기준)
+- **매일 06:30** → Daily Briefing (뉴스 5 + 아티클 3)
+- **토요일 06:30** → Weekend Deep Dive (아티클 3)
+- **일요일 12:00** → Weekly Report
+
+---
+
+## 10. 실행 방법
 
 ```bash
 # Daily Briefing
@@ -162,30 +185,58 @@ python main.py weekend
 # Weekly Report (일요일)
 python main.py weekly
 
-# Slack 이벤트 서버 (이모지 수신용)
+# Flask 서버 + 스케줄러 (Railway 배포용)
 python main.py server
 ```
 
 ---
 
-## 10. Phase 진행 상태
+## 11. Notion Vault (Alchemy Vault)
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| Title | Title | 아티클/뉴스 제목 |
+| URL | URL | 원문 링크 |
+| Source | Select | 소스명 |
+| Axis | Select | 5개 관심축 |
+| New Concept | Text | 새로운 개념/프레임워크 |
+| Concept Note | Text | 개념 설명 |
+| Why It Matters | Text | 왜 읽어야 하는가 |
+| Rating | Select | ⭐ 인상적 / 📂 저장 |
+| Date | Date | 큐레이션 날짜 |
+| Tags | Multi-select | 자유 태그 |
+| My Note | Text | 읽고 난 후 메모 (수동) |
+
+---
+
+## 12. Phase 진행 상태
 
 | Phase | 내용 | 상태 |
 |-------|------|------|
 | Phase 1 | Daily Briefing + 이모지 인터랙션 + DB 저장 | ✅ 완료 |
-| Phase 2 | Notion 연동 (📂 저장 시 Notion에 자동 추가) | 미착수 |
-| Phase 3 | Weekend Deep Dive + Weekly Report | ✅ 완료 (코드 작성됨, 테스트 필요) |
-| 배포 | Railway 또는 local cron 자동화 | 진행 중 |
+| Phase 2 | Notion Vault 연동 (⭐/📂 → Notion 자동 아카이브) | ✅ 완료 |
+| Phase 3 | Weekend Deep Dive + Weekly Report | ✅ 완료 |
+| 배포 | Railway 자동화 + Slack Event Subscription | ✅ 완료 |
 
 ---
 
-## 11. 향후 계획
+## 13. 보안
 
-- [ ] Phase 3 실제 환경 테스트 (weekend / weekly 명령)
-- [ ] Railway 배포 또는 local cron 스케줄링 확정
-- [ ] Phase 2 Notion 연동 설계 및 구현
+| 항목 | 상태 |
+|------|------|
+| `.env` Git 제외 | ✅ `.gitignore`에 포함, 커밋 이력 없음 |
+| GitHub Private 레포 | ✅ |
+| Railway 환경변수 | ✅ 서버 측 암호화 저장 |
+| `.env.example` | ✅ 더미 값만 포함 |
+
+---
+
+## 14. 향후 계획
+
+- [ ] AI 모델 업그레이드 검토 (요약 품질 개선)
 - [ ] 추천 정확도 개선 (피드백 루프 강화)
 - [ ] 월간 리포트 추가 고려
+- [ ] Notion Vault 활용 패턴 발전 (태그 자동화, 주간 리뷰 연동 등)
 
 ---
 
